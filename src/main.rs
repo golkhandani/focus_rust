@@ -51,4 +51,7 @@ fn main() {
         }
     };
     println!("What is banana donut price!?\t{:?} ", val2);
+
+    // you cannot sort hashMap dear
+    // it's an unordered collection
 }
