@@ -33,6 +33,7 @@ use std::{
     fmt::{Debug, Display, Formatter, Result},
     mem,
     rc::Rc,
+    sync::Arc,
     vec,
 };
 
@@ -100,16 +101,25 @@ struct Category {
 // ------------------------------------
 // ------------------------------------
 // ------------------------------------
+// Arc
+// Same as RC but for threads
+// it stands for Atomic RC
+// Why not Arc for all situations?
+// because has some overloads compare to RC
+// `Rc<DeliveryPerson>` cannot be sent between threads safely
+// the trait `Send` is not implemented for `Rc<DeliveryPerson>`
+// required for `Unique<Rc<DeliveryPerson>>` to implement `Send`
+// required because it appears within the type
+// `(Vec<Rc<DeliveryPerson>>, Vec<Rc<DeliveryPerson>>)`
 
 #[derive(Debug)]
 struct DeliveryPerson {
-    social_number: String,
     name: String,
 }
 
 impl Drop for DeliveryPerson {
     fn drop(&mut self) {
-        println!("Dropped {} - SIN: {}", self.name, self.social_number)
+        println!("Dropped {}", self.name)
     }
 }
 
@@ -141,15 +151,12 @@ fn main() {
     // define delivery-person items
     let delivery_person1 = Rc::new(DeliveryPerson {
         name: "Person1".to_string(),
-        social_number: "2drgdni2".to_string(),
     });
     let delivery_person2 = Rc::new(DeliveryPerson {
         name: "Person2".to_string(),
-        social_number: "223dwni2".to_string(),
     });
     let delivery_person3 = Rc::new(DeliveryPerson {
         name: "Person3".to_string(),
-        social_number: "2dni2312".to_string(),
     });
 
     // define delivery-applications
@@ -179,16 +186,32 @@ fn main() {
 
     // I created a custom drop for DeliveryPerson
     // for better understanding
+    println!(
+        "RC: delivery_person1 {}",
+        Rc::strong_count(&delivery_person1),
+    );
     println!("Uber delivery: {:?}", uber);
     mem::drop(uber);
+    println!(
+        "RC: delivery_person1 {}",
+        Rc::strong_count(&delivery_person1),
+    );
 
     println!("Uber delivery: {:?}", door_dash);
     mem::drop(door_dash);
+    println!(
+        "RC: delivery_person1 {}",
+        Rc::strong_count(&delivery_person1),
+    );
 
     println!("Uber delivery: {:?}", skip_dishes);
     mem::drop(skip_dishes);
+    println!(
+        "RC: delivery_person1 {}",
+        Rc::strong_count(&delivery_person1),
+    );
 
-    println!("Focus Rust!")
+    println!("Focus Rust!");
 
     // drop(skip_dishes) is dropping the last references of
     // delivery_person2, delivery_person3
@@ -201,4 +224,31 @@ fn main() {
     // to the skip_dishes vector and with dropping the vector
     // there is no other owner
     // while delivery_person1 is still owned by main function
+
+    // ARC
+
+    let delivery_person4 = Arc::new(DeliveryPerson {
+        name: "Person4".to_string(),
+    });
+    let delivery_person5 = Arc::new(DeliveryPerson {
+        name: "Person5".to_string(),
+    });
+
+    let thread = std::thread::spawn(move || {
+        let tim_hortons = vec![delivery_person4.clone()];
+        let galio = vec![delivery_person5, delivery_person4.clone()];
+        return (tim_hortons, galio);
+    });
+
+    let (tim, galio) = thread.join().unwrap();
+
+    println!("Uber delivery: {:?}", tim);
+
+    mem::drop(tim);
+
+    println!("Uber delivery: {:?}", galio);
+
+    mem::drop(galio);
+
+    println!("Focus Rust!");
 }
